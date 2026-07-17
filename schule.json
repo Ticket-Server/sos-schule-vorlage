@@ -1,0 +1,87 @@
+{
+  "schoolName": "SOS Schule",
+  "schoolSub": "Notfallplan · Jederzeit griffbereit",
+  "schoolAbbr": "SOS",
+  "schoolColor": "#C0392B",
+  "schoolLogo": "",
+  "pin": "1234",
+  "telefonbuch": [
+    {
+      "name": "Schulleiter/in",
+      "role": "Schulleitung",
+      "tel": "",
+      "icon": "👤"
+    },
+    {
+      "name": "Sekretariat",
+      "role": "Allgemein",
+      "tel": "",
+      "icon": "🏫"
+    },
+    {
+      "name": "Polizei Notruf",
+      "role": "Notruf",
+      "tel": "110",
+      "icon": "🚔",
+      "locked": true
+    },
+    {
+      "name": "Feuerwehr / Rettung",
+      "role": "Notruf",
+      "tel": "112",
+      "icon": "🚒",
+      "locked": true
+    },
+    {
+      "name": "Krankenhaus",
+      "role": "Medizin",
+      "tel": "",
+      "icon": "🏥"
+    },
+    {
+      "name": "Schulpsycholog. Dienst",
+      "role": "Beratung",
+      "tel": "",
+      "icon": "💙"
+    }
+  ],
+  "sammelplatz": "",
+  "defi": "",
+  "saniRoom": "",
+  "brandmel": "",
+  "rooms": "",
+  "tileOverrides": {},
+  "customTiles": [],
+  "screenBlocks": {},
+  "konzept": "",
+  "kjpName": "Kinder-/Jugendpsychiatrie",
+  "kjpTel": "",
+  "psyName": "Psychiatrie",
+  "psyTel": "",
+  "schoolAddress": "",
+  "announcements": [
+    {
+      "title": "Amok / Einschluss",
+      "text": "Achtung! Gefahr im Haus – Einschluss!\n\nIch wiederhole:\n\nAchtung! Gefahr im Haus – Einschluss!"
+    },
+    {
+      "title": "Evakuierung",
+      "text": "Achtung, eine wichtige Durchsage:\n\nBitte verlassen Sie sofort das Schulgebäude und begeben Sie sich zum Sammelplatz."
+    },
+    {
+      "title": "Entwarnung",
+      "text": "Achtung, eine wichtige Durchsage:\n\nDie Gefahrenlage ist beendet. Es besteht keine Gefahr mehr. Der Unterricht wird fortgesetzt."
+    }
+  ],
+  "setupDone": true,
+  "checklist": [
+    "Alle Türen im EG kontrolliert",
+    "Fenster verschlossen",
+    "Fluchtwege frei",
+    "Feuerlöscher geprüft",
+    "Sanitätsraum aufgeschlossen",
+    "Defibrillator betriebsbereit",
+    "Anwesenheitslisten aktuell",
+    "Notfallmappe vollständig"
+  ]
+}
