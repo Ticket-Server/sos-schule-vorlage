@@ -1610,6 +1610,9 @@ self.addEventListener('message', event => {
         <button class="quick-btn" onclick="navigate('durchsagen')">
           <span class="qi">📢</span>Durchsagen
         </button>
+        <button class="quick-btn" onclick="navigate('standorte')">
+          <span class="qi">📍</span>Standorte
+        </button>
         <button class="quick-btn" onclick="navigate('anwesenheit')">
           <span class="qi">🧑‍🤝‍🧑</span>Anwesenheit
         </button>
@@ -2018,6 +2021,26 @@ self.addEventListener('message', event => {
   </div>
 
   <!-- ========================================================
+    SCREEN: STANDORTE (zentrale Übersicht)
+  ======================================================== -->
+  <div id="screen-standorte" class="screen">
+    <div class="header" style="background:#27AE60">
+      <button class="back-btn" onclick="goBack()">←</button>
+      <div class="header-title">📍 Wichtige Standorte<div class="header-subtitle">Auf einen Blick</div></div>
+    </div>
+    <div class="scroll-content">
+      <div class="content-card" style="margin-top:16px">
+        <div class="content-card-header">🏫 Standorte im Gebäude</div>
+        <div class="content-card-body" id="standorte-screen-list"></div>
+      </div>
+      <div class="info-banner">
+        <span class="ib-icon">💡</span>
+        <span>Standorte im Admin-Bereich unter „Wichtige Standorte" eintragen oder ändern.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================
     SCREEN: NOTRUF-ASSISTENT
   ======================================================== -->
   <div id="screen-notruf" class="screen">
@@ -2111,7 +2134,22 @@ self.addEventListener('message', event => {
       <!-- Zentral-Modus Hinweis (Modell C) -->
       <div class="info-banner" id="central-config-banner" style="display:none;margin:16px 16px 0;background:rgba(230,126,34,0.15);border-color:rgba(230,126,34,0.5)">
         <span class="ib-icon">🔄</span>
-        <span><strong>Zentrale Konfiguration aktiv</strong> (<span id="central-config-file">schule.json</span>): Änderungen hier gelten nur auf diesem Gerät, bis Sie sie unten <strong>exportieren</strong> und die Datei im GitHub-Repository der Schule <strong>ersetzen</strong>. Nicht hochgeladene Änderungen werden beim nächsten Online-Start wieder überschrieben. Nach dem Upload übernehmen alle Geräte die Änderungen automatisch.</span>
+        <span><strong>Zentrale Konfiguration aktiv</strong> (<span id="central-config-file">schule.json</span>)<span id="central-config-published"></span>: Änderungen hier gelten nur auf diesem Gerät, bis Sie sie unten <strong>exportieren</strong> und die Datei im GitHub-Repository der Schule <strong>ersetzen</strong>. Nicht hochgeladene Änderungen werden beim nächsten Online-Start wieder überschrieben. Nach dem Upload übernehmen alle Geräte die Änderungen automatisch.</span>
+      </div>
+
+      <!-- "Noch nicht veröffentlicht"-Warnung -->
+      <div class="info-banner" id="unpublished-warning" style="display:none;margin:0 16px 0;background:rgba(192,57,43,0.2);border-color:rgba(192,57,43,0.5)">
+        <span class="ib-icon">⚠️</span>
+        <span><strong>Achtung: Nicht veröffentlichte Änderungen!</strong> Sie haben seit dem letzten Export etwas gespeichert (<span id="unpublished-since"></span>). Diese Änderungen gelten nur auf diesem Gerät. Bitte jetzt unten <strong>exportieren</strong> und die Datei im Repository ersetzen – sonst gehen sie beim nächsten Laden der zentralen Konfiguration verloren.</span>
+      </div>
+
+      <!-- Backup-Wiederherstellung -->
+      <div class="info-banner" id="backup-restore-banner" style="display:none;margin:0 16px 0;background:rgba(41,128,185,0.18);border-color:rgba(41,128,185,0.5)">
+        <span class="ib-icon">💾</span>
+        <span><strong>Lokales Backup gefunden</strong> (<span id="backup-info"></span>): Vor dem letzten Laden der zentralen Konfiguration wurden hier nicht hochgeladene Änderungen erkannt und automatisch gesichert.
+          <button class="btn-secondary" style="margin-top:8px;width:auto;padding:8px 14px;display:inline-flex" onclick="restoreLocalBackup()">↺ Backup wiederherstellen</button>
+          <button class="btn-secondary" style="margin-top:8px;margin-left:8px;width:auto;padding:8px 14px;display:inline-flex;background:transparent;border-color:rgba(255,255,255,0.15)" onclick="clearLocalBackup();updatePublishBanner()">Verwerfen</button>
+        </span>
       </div>
 
       <!-- School Identity -->
@@ -2409,7 +2447,7 @@ self.addEventListener('message', event => {
             </span>
           </div>
         </div>
-        <p class="text-center" style="font-size:11px;color:rgba(255,255,255,0.3);padding:8px 16px 24px">SOS Schule Notfallapp · Version <span id="app-version">2.6.0</span><br>Erstellt am BSZ Cham · Frei nutzbar für Schulen</p>
+        <p class="text-center" style="font-size:11px;color:rgba(255,255,255,0.3);padding:8px 16px 24px">SOS Schule Notfallapp · Version <span id="app-version">2.6.1</span><br>Erstellt am BSZ Cham · Frei nutzbar für Schulen</p>
       </div>
     </div>
   </div>
@@ -2551,8 +2589,22 @@ let adminUnlocked = false;
 let saniInterval = null;
 let saniSeconds = 0;
 
-const STORAGE_KEY = 'sos_schule_config_v2';
-const APP_VERSION = '2.6.0';
+const STORAGE_KEY_BASE = 'sos_schule_config_v2';
+const APP_VERSION = '2.6.1';
+
+// Speicher pro Repository-Pfad trennen (verhindert Datenvermischung zwischen
+// Schulen, die auf derselben Domain, z.B. github.io, unter verschiedenen
+// Unterordnern laufen).
+function storageScope() {
+  try {
+    let path = location.pathname.replace(/\/[^\/]*$/, '/');
+    path = path.replace(/^\/|\/$/g, '');
+    return path || 'root';
+  } catch (e) { return 'root'; }
+}
+const STORAGE_KEY = STORAGE_KEY_BASE + '::' + storageScope();
+const META_KEY = STORAGE_KEY + '::meta';
+const BACKUP_KEY = STORAGE_KEY + '::backup';
 
 const defaultConfig = {
   schoolName: 'SOS Schule',
@@ -2613,7 +2665,14 @@ let config = { ...defaultConfig };
 ============================================================ */
 function loadConfig() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      // Einmalige Migration: ältere App-Versionen (<2.6.1) nutzten einen
+      // geräteweiten Schlüssel ohne Pfad-Trennung. Übernehmen, falls vorhanden,
+      // damit auf diesem Gerät bereits eingegebene Daten nicht verloren gehen.
+      const legacy = localStorage.getItem(STORAGE_KEY_BASE);
+      if (legacy) { raw = legacy; try { localStorage.setItem(STORAGE_KEY, legacy); } catch (e) {} }
+    }
     if (raw) {
       const saved = JSON.parse(raw);
       config = { ...defaultConfig, ...saved };
@@ -2625,6 +2684,58 @@ function persistConfig() {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
   } catch(e) { /* ignore */ }
+}
+
+// Meta-Infos (Zeitstempel) getrennt vom eigentlichen Konfigurationsobjekt,
+// damit sie nie versehentlich mit in einen Export/Import wandern.
+function loadMeta() {
+  try { return JSON.parse(localStorage.getItem(META_KEY) || '{}'); }
+  catch (e) { return {}; }
+}
+function saveMeta(patch) {
+  try {
+    const m = { ...loadMeta(), ...patch };
+    localStorage.setItem(META_KEY, JSON.stringify(m));
+    return m;
+  } catch (e) { return loadMeta(); }
+}
+
+function hasUnpublishedChanges() {
+  const m = loadMeta();
+  return !!(remoteConfigUrl && m.lastSavedAt && (!m.lastExportedAt || m.lastSavedAt > m.lastExportedAt));
+}
+
+function saveLocalBackup() {
+  try {
+    localStorage.setItem(BACKUP_KEY, JSON.stringify({
+      config, savedAt: loadMeta().lastSavedAt || null, backedUpAt: Date.now(),
+    }));
+  } catch (e) { /* ignore */ }
+}
+
+function loadLocalBackup() {
+  try {
+    const raw = localStorage.getItem(BACKUP_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
+function clearLocalBackup() {
+  try { localStorage.removeItem(BACKUP_KEY); } catch (e) { /* ignore */ }
+}
+
+function restoreLocalBackup() {
+  const b = loadLocalBackup();
+  if (!b || !b.config) return;
+  if (!confirm('Lokales Backup vom ' + new Date(b.backedUpAt).toLocaleString('de-DE') + ' wiederherstellen? Die aktuell angezeigte Konfiguration wird dabei ersetzt.')) return;
+  config = { ...defaultConfig, ...b.config };
+  persistConfig();
+  saveMeta({ lastSavedAt: Date.now() });
+  clearLocalBackup();
+  populateAdminForm();
+  applyBranding();
+  renderHomeTiles();
+  showToast('✓ Backup wiederhergestellt – bitte jetzt exportieren & hochladen');
 }
 
 /* ============================================================
@@ -2658,10 +2769,11 @@ function navigate(screenId) {
   if (screenId === 'telefon') renderTelefon();
   if (screenId === 'admin') initAdmin();
   if (screenId === 'checkliste') renderChecklist();
-  if (screenId === 'sani') startSaniTimer();
+  if (screenId === 'sani') { startSaniTimer(); renderStandorte(); }
   if (screenId === 'konzept') renderKonzept();
   if (screenId === 'sonstiges') renderSonstiges();
   if (screenId === 'unfall') renderStandorte();
+  if (screenId === 'standorte') renderStandorte();
   if (screenId === 'suizid') renderSuizid();
   if (screenId === 'durchsagen') renderDurchsagen();
   if (screenId === 'notruf') renderNotruf();
@@ -2900,6 +3012,7 @@ function populateAdminForm() {
       document.getElementById('central-config-file').textContent = fn;
     }
   }
+  updatePublishBanner();
   document.getElementById('cfg-school-name').value = config.schoolName || '';
   document.getElementById('cfg-school-sub').value = config.schoolSub || '';
   document.getElementById('cfg-school-abbr').value = config.schoolAbbr || '';
@@ -2939,6 +3052,37 @@ function populateAdminForm() {
   ensureTileIds();
   renderBlocksAdmin();
   renderContentAdmin();
+}
+
+// Zeigt/versteckt: "nicht veröffentlicht"-Warnung + Backup-Wiederherstellung
+function updatePublishBanner() {
+  const uw = document.getElementById('unpublished-warning');
+  if (uw) {
+    const unpub = hasUnpublishedChanges();
+    uw.style.display = unpub ? 'flex' : 'none';
+    if (unpub) {
+      const m = loadMeta();
+      document.getElementById('unpublished-since').textContent =
+        new Date(m.lastSavedAt).toLocaleString('de-DE');
+    }
+  }
+  const bb = document.getElementById('backup-restore-banner');
+  if (bb) {
+    const b = loadLocalBackup();
+    bb.style.display = b ? 'flex' : 'none';
+    if (b) {
+      document.getElementById('backup-info').textContent =
+        'gesichert am ' + new Date(b.backedUpAt).toLocaleString('de-DE')
+        + (b.savedAt ? ', zuletzt geändert am ' + new Date(b.savedAt).toLocaleString('de-DE') : '');
+    }
+  }
+  // Veröffentlichungsstand der aktuell geladenen Datei anzeigen (aus appVersion/exportedAt)
+  const cp = document.getElementById('central-config-published');
+  if (cp) {
+    cp.textContent = config.exportedAt
+      ? ' · Stand: ' + new Date(config.exportedAt).toLocaleString('de-DE')
+      : '';
+  }
 }
 
 function selectColor(el) {
@@ -3040,9 +3184,11 @@ function saveConfig() {
   if (newPin && /^\d{4}$/.test(newPin)) config.pin = newPin;
 
   persistConfig();
+  saveMeta({ lastSavedAt: Date.now() });
   applyBranding();
   showSaveIndicator();
   renderHomeTiles();
+  updatePublishBanner();
 }
 
 /* ============================================================
@@ -3052,6 +3198,10 @@ function exportConfig() {
   const exp = { ...config };
   delete exp.log;        // Gerätedaten nicht exportieren
   delete exp.attendance; // Zähler ist Momentaufnahme des Geräts
+  // Versions- und Zeitstempel: macht jede schule.json auf einen Blick erkennbar
+  // (welche App-Version, wann erzeugt) – wichtig bei mehreren Schulen/Dateien.
+  exp.appVersion = APP_VERSION;
+  exp.exportedAt = new Date().toISOString();
   const blob = new Blob([JSON.stringify(exp, null, 2)], { type:'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -3063,6 +3213,9 @@ function exportConfig() {
     : (config.schoolName || 'sos_schule').replace(/\s/g,'_') + '_config.json';
   a.click();
   URL.revokeObjectURL(url);
+  saveMeta({ lastExportedAt: Date.now() });
+  updatePublishBanner();
+  showToast('✓ Export erstellt – jetzt auf GitHub hochladen & committen!');
 }
 
 function importConfig(input) {
@@ -3915,24 +4068,30 @@ function renderSuizid() {
 }
 
 function renderStandorte() {
+  const rows = [
+    { icon: '♥', bg: '#27AE60', label: 'Defibrillator',        val: config.defi },
+    { icon: '+', bg: '#2980B9', label: 'Sanitätsraum',         val: config.saniRoom },
+    { icon: '📍', bg: '#E67E22', label: 'Sammelplatz',          val: config.sammelplatz },
+    { icon: '🚒', bg: '#C0392B', label: 'Brandmeldetableau',    val: config.brandmel },
+  ];
+  const html = rows.map(r => `
+    <div class="sofort-step">
+      <div class="step-num" style="background:${r.bg};font-size:14px">${r.icon}</div>
+      <div class="step-txt"><strong>${escapeHtml(r.label)}</strong> – ${escapeHtml((r.val || '').trim() || 'nicht konfiguriert')}</div>
+    </div>`).join('');
+
   const el = document.getElementById('standorte-content');
-  el.innerHTML = `
-    <div class="sofort-step">
-      <div class="step-num" style="background:#27AE60;font-size:14px">♥</div>
-      <div class="step-txt"><strong>Defibrillator</strong> – ${config.defi || 'nicht konfiguriert'}</div>
-    </div>
-    <div class="sofort-step">
-      <div class="step-num" style="background:#2980B9;font-size:14px">+</div>
-      <div class="step-txt"><strong>Sanitätsraum</strong> – ${config.saniRoom || 'nicht konfiguriert'}</div>
-    </div>
-  `;
-  // Also update sani screen
+  if (el) el.innerHTML = html;
+
   const sa = document.getElementById('sani-standorte');
-  if (sa) sa.innerHTML = el.innerHTML;
+  if (sa) sa.innerHTML = html;
+
+  const ss = document.getElementById('standorte-screen-list');
+  if (ss) ss.innerHTML = html;
 
   // sammelplatz
   const sp = document.getElementById('sammelplatz-text');
-  if (sp) sp.textContent = config.sammelplatz || 'nicht konfiguriert';
+  if (sp) sp.textContent = (config.sammelplatz || '').trim() || 'nicht konfiguriert';
 }
 
 /* ============================================================
@@ -4322,10 +4481,18 @@ async function loadRemoteConfig() {
     const res = await fetch(cfgUrl, { cache: 'no-cache' });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const remote = await res.json();
+    // Schutz: Falls hier lokale, noch nicht hochgeladene Änderungen liegen,
+    // vor dem Überschreiben automatisch sichern (wiederherstellbar im Admin).
+    if (hasUnpublishedChanges()) {
+      saveLocalBackup();
+      setTimeout(() => showToast('⚠ Nicht hochgeladene Änderungen automatisch gesichert (Admin-Bereich)'), 2600);
+    }
     config = { ...defaultConfig, ...config, ...remote, log: config.log || [], attendance: config.attendance || [] };
     config.setupDone = true;
     ensureTileIds();
     persistConfig();
+    // Ab hier ist der lokale Stand wieder deckungsgleich mit der zentralen Datei.
+    saveMeta({ lastSavedAt: Date.now(), lastExportedAt: Date.now() });
     applyBranding();
     showToast('✓ Konfiguration geladen: ' + (config.schoolName || ''));
     return true;
